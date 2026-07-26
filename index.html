@@ -602,6 +602,7 @@ try{
     try{ return fn(); }
     catch(e){ console.warn("[init] "+label+" failed, continuing without it:", e); return null; }
   }
+  var MOBILE_FREEZE_MS = 7000;
   function debounce(fn,ms){
     var t=null;
     return function(){
@@ -833,6 +834,7 @@ try{
         gl.uniform1f(uSwirl, typeof swirl === "number" ? swirl : 1.1);
         gl.uniform1f(uGlow, typeof glowMul === "number" ? glowMul : 1.0);
         gl.uniform1f(uMode, typeof mode === "number" ? mode : 0);
+        if (frozen) render();
       }catch(e){ console.warn("[nebula] setPalette failed:", e); }
     }
     setPalette("#26E0FF","#8B5CF6","#FF4ECD",1.1,0.7,0);
@@ -844,6 +846,7 @@ try{
       H=Math.max(2,Math.floor(innerHeight*SCALE));
       cv.width=W; cv.height=H;
       gl.viewport(0,0,W,H);
+      if (frozen) render();
     }
     size();
     window.addEventListener("resize", debounce(size, 200));
@@ -871,7 +874,7 @@ try{
       burst(innerWidth*(0.3+Math.random()*0.6), innerHeight*(0.1+Math.random()*0.5), false);
     },4600);
 
-    var dim=0.8, running=true, lost=false;
+    var dim=0.8, running=true, lost=false, frozen=false;
     document.addEventListener("visibilitychange",function(){ running=!document.hidden; });
     cv.addEventListener("webglcontextlost",function(e){
       e.preventDefault(); lost=true; running=false;
@@ -881,9 +884,7 @@ try{
       console.warn("[nebula] WebGL context restored — reinitializing background");
       nebula = safeRun(startNebula,"nebula");
     },false);
-    (function frame(){
-      requestAnimationFrame(frame);
-      if(!running || lost) return;
+    function render(){
       try{
         mx+=(tx-mx)*0.06; my+=(ty-my)*0.06;
         gl.uniform2f(uRes,W,H);
@@ -893,7 +894,19 @@ try{
         gl.uniform3fv(uBurst,bursts);
         gl.drawArrays(gl.TRIANGLES,0,3);
       }catch(e){ /* transient GL error — next frame will retry */ }
+    }
+    (function frame(){
+      if (frozen) return;
+      requestAnimationFrame(frame);
+      if(!running || lost) return;
+      render();
     })();
+    /* touch/coarse-pointer devices are typically weaker GPUs — let the reveal
+       play, then freeze on the last frame instead of animating forever, since
+       a continuously-redrawing fullscreen shader plus scroll compounds into lag */
+    if (!fine){
+      setTimeout(function(){ frozen = true; }, MOBILE_FREEZE_MS);
+    }
 
     document.body.classList.add("gl");
     return {
@@ -994,40 +1007,8 @@ try{
     var cv = $("#stars"); if (!cv || reduce) return;
     var ctx; try{ ctx = cv.getContext("2d"); }catch(e){ ctx = null; }
     if (!ctx) return;
-    var W=0,H=0,DPR=1, pts=[], mouse={x:-9e3,y:-9e3}, running=true;
-    function size(){
-      try{
-        DPR = Math.min(window.devicePixelRatio||1,2);
-        var newW = cv.offsetWidth, newH = cv.offsetHeight;
-        var widthChanged = Math.abs(newW - W) > 20;
-        W = newW; H = newH;
-        cv.width = W*DPR; cv.height = H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
-        /* mobile browsers fire resize repeatedly as the address bar collapses/expands
-           during scroll — that only changes H, so skip reshuffling every particle
-           (which looked like a glitch) unless the width actually changed */
-        if (widthChanged || !pts.length){
-          var n = Math.min(90, Math.floor(W*H/22000));
-          pts = [];
-          for (var i=0;i<n;i++) pts.push({
-            x:Math.random()*W, y:Math.random()*H,
-            vx:(Math.random()-.5)*.35, vy:(Math.random()-.5)*.35,
-            r:Math.random()*1.6+.4, c:Math.random()<.5?"38,224,255":"139,92,246"
-          });
-        }
-      }catch(e){ console.warn("[stars] resize failed:", e); }
-    }
-    size();
-    window.addEventListener("resize", debounce(size, 200));
-    if (cv.parentElement){
-      cv.parentElement.addEventListener("pointermove", function(e){
-        var b = cv.getBoundingClientRect(); mouse.x = e.clientX-b.left; mouse.y = e.clientY-b.top;
-      });
-      cv.parentElement.addEventListener("pointerleave", function(){ mouse.x=-9e3; mouse.y=-9e3; });
-    }
-    document.addEventListener("visibilitychange", function(){ running = !document.hidden; });
-    (function loop(){
-      requestAnimationFrame(loop);
-      if (!running) return;
+    var W=0,H=0,DPR=1, pts=[], mouse={x:-9e3,y:-9e3}, running=true, frozen=false;
+    function render(){
       try{
         ctx.clearRect(0,0,W,H);
         for (var i=0;i<pts.length;i++){
@@ -1050,7 +1031,47 @@ try{
           }
         }
       }catch(e){ /* transient canvas error — next frame will retry */ }
+    }
+    function size(){
+      try{
+        DPR = Math.min(window.devicePixelRatio||1,2);
+        var newW = cv.offsetWidth, newH = cv.offsetHeight;
+        var widthChanged = Math.abs(newW - W) > 20;
+        W = newW; H = newH;
+        cv.width = W*DPR; cv.height = H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+        /* mobile browsers fire resize repeatedly as the address bar collapses/expands
+           during scroll — that only changes H, so skip reshuffling every particle
+           (which looked like a glitch) unless the width actually changed */
+        if (widthChanged || !pts.length){
+          var n = Math.min(90, Math.floor(W*H/22000));
+          pts = [];
+          for (var i=0;i<n;i++) pts.push({
+            x:Math.random()*W, y:Math.random()*H,
+            vx:(Math.random()-.5)*.35, vy:(Math.random()-.5)*.35,
+            r:Math.random()*1.6+.4, c:Math.random()<.5?"38,224,255":"139,92,246"
+          });
+        }
+        if (frozen) render();
+      }catch(e){ console.warn("[stars] resize failed:", e); }
+    }
+    size();
+    window.addEventListener("resize", debounce(size, 200));
+    if (cv.parentElement){
+      cv.parentElement.addEventListener("pointermove", function(e){
+        var b = cv.getBoundingClientRect(); mouse.x = e.clientX-b.left; mouse.y = e.clientY-b.top;
+      });
+      cv.parentElement.addEventListener("pointerleave", function(){ mouse.x=-9e3; mouse.y=-9e3; });
+    }
+    document.addEventListener("visibilitychange", function(){ running = !document.hidden; });
+    (function loop(){
+      if (frozen) return;
+      requestAnimationFrame(loop);
+      if (!running) return;
+      render();
     })();
+    if (!fine){
+      setTimeout(function(){ frozen = true; }, MOBILE_FREEZE_MS);
+    }
   }
 
   /* ---------- role scramble ---------- */
