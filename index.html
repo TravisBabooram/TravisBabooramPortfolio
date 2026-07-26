@@ -157,11 +157,13 @@ try{
   .hero-glow.a{width:52vw;height:52vw;left:-14vw;top:-18vw;background:radial-gradient(circle,rgba(139,92,246,.5),transparent 65%)}
   .hero-glow.b{width:46vw;height:46vw;right:-12vw;bottom:-16vw;background:radial-gradient(circle,rgba(38,224,255,.4),transparent 65%);animation:drift 14s ease-in-out infinite alternate}
   @keyframes drift{to{transform:translate(-6vw,-5vh) scale(1.12)}}
+  .hero-scrim{position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(100deg,rgba(4,6,13,.6) 0%,rgba(4,6,13,.38) 42%,transparent 68%)}
   .hero-in{position:relative;z-index:2;width:100%;padding-top:90px;padding-bottom:60px}
   .eyebrow{font-family:var(--mono);font-size:12.5px;letter-spacing:.18em;text-transform:uppercase;
     color:var(--cyan);margin-bottom:26px}
   h1{font-family:var(--display);font-weight:900;text-transform:uppercase;
-    font-size:clamp(32px,10.4vw,132px);line-height:.96;letter-spacing:-.01em;margin-bottom:26px}
+    font-size:clamp(32px,10.4vw,132px);line-height:.96;letter-spacing:-.01em;margin-bottom:40px}
   .h-line{display:block;overflow:hidden;padding:.06em 0;white-space:nowrap}
   .h-line .ch{display:inline-block;will-change:transform}
   .h-line.grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -209,7 +211,7 @@ try{
 
   /* ---------- sections ---------- */
   section{padding:clamp(90px,12vh,150px) 0 0}
-  .sec-head{display:flex;align-items:baseline;gap:18px;margin-bottom:clamp(36px,6vh,64px)}
+  .sec-head{display:flex;align-items:baseline;gap:18px;margin-bottom:clamp(46px,7.5vh,80px)}
   .sec-i{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.2em;color:var(--cyan)}
   .sec-head h2{font-family:var(--display);font-weight:700;text-transform:uppercase;
     font-size:clamp(28px,5vw,54px);line-height:1}
@@ -250,7 +252,7 @@ try{
   .tag{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;
     border:1px solid var(--line);border-radius:var(--r-pill);padding:6px 12px;color:var(--dim)}
   .panel h3{font-family:var(--display);font-weight:700;text-transform:uppercase;
-    font-size:clamp(26px,3.6vw,46px);line-height:1.05;margin-bottom:14px;max-width:14ch}
+    font-size:clamp(26px,3.6vw,46px);line-height:1.05;margin-bottom:22px;max-width:14ch}
   .panel p{color:var(--dim);max-width:52ch;margin-bottom:26px}
   .p-link{align-self:flex-start}
   .work-hud{display:none;justify-content:space-between;align-items:center;
@@ -314,7 +316,7 @@ try{
   /* ---------- contact ---------- */
   .contact{padding-bottom:40px}
   .huge{font-family:var(--display);font-weight:900;text-transform:uppercase;
-    font-size:clamp(40px,9vw,120px);line-height:1;letter-spacing:-.01em;margin-bottom:14px}
+    font-size:clamp(40px,9vw,120px);line-height:1;letter-spacing:-.01em;margin-bottom:28px}
   .huge .lt{display:inline-block;will-change:transform}
   .huge .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
   .contact .sub{color:var(--dim);max-width:52ch;margin-bottom:40px;font-size:clamp(16px,1.6vw,19px)}
@@ -391,6 +393,7 @@ try{
     <canvas id="stars" aria-hidden="true"></canvas>
     <div class="hero-glow a" aria-hidden="true"></div>
     <div class="hero-glow b" aria-hidden="true"></div>
+    <div class="hero-scrim" aria-hidden="true"></div>
     <div class="wrap hero-in">
       <p class="eyebrow" data-fade>// SOFTWARE ENGINEER — TRINIDAD &amp; TOBAGO</p>
       <h1 aria-label="Travis Babooram">
@@ -598,6 +601,14 @@ try{
   function safeRun(fn,label){
     try{ return fn(); }
     catch(e){ console.warn("[init] "+label+" failed, continuing without it:", e); return null; }
+  }
+  function debounce(fn,ms){
+    var t=null;
+    return function(){
+      var args=arguments, ctx=this;
+      clearTimeout(t);
+      t=setTimeout(function(){ fn.apply(ctx,args); }, ms);
+    };
   }
   function splitChars(el){
     var text = el.textContent; el.textContent = "";
@@ -824,7 +835,7 @@ try{
         gl.uniform1f(uMode, typeof mode === "number" ? mode : 0);
       }catch(e){ console.warn("[nebula] setPalette failed:", e); }
     }
-    setPalette("#26E0FF","#8B5CF6","#FF4ECD",1.1,1.0,0);
+    setPalette("#26E0FF","#8B5CF6","#FF4ECD",1.1,0.7,0);
 
     var SCALE=Math.min(window.devicePixelRatio||1,1.5)*0.66;
     var W=0,H=0;
@@ -834,7 +845,8 @@ try{
       cv.width=W; cv.height=H;
       gl.viewport(0,0,W,H);
     }
-    size(); window.addEventListener("resize",size);
+    size();
+    window.addEventListener("resize", debounce(size, 200));
 
     var mx=innerWidth*0.7, my=innerHeight*0.35, tx=mx, ty=my;
     window.addEventListener("pointermove",function(e){ tx=e.clientX; ty=e.clientY; });
@@ -859,7 +871,7 @@ try{
       burst(innerWidth*(0.3+Math.random()*0.6), innerHeight*(0.1+Math.random()*0.5), false);
     },4600);
 
-    var dim=1, running=true, lost=false;
+    var dim=0.8, running=true, lost=false;
     document.addEventListener("visibilitychange",function(){ running=!document.hidden; });
     cv.addEventListener("webglcontextlost",function(e){
       e.preventDefault(); lost=true; running=false;
@@ -908,11 +920,11 @@ try{
   var THEME_KEY = "tb-theme";
   var THEMES = [
     {id:"nebula", name:"Nebula", desc:"Aurora smoke, rounded",
-      cyan:"#26E0FF", violet:"#8B5CF6", magenta:"#FF4ECD", swirl:1.1, glow:1.0, mode:0},
+      cyan:"#26E0FF", violet:"#8B5CF6", magenta:"#FF4ECD", swirl:1.1, glow:0.7, mode:0},
     {id:"solar", name:"Solar", desc:"Radiating flare, organic",
-      cyan:"#FFD166", violet:"#FF7A45", magenta:"#E63950", swirl:0.55, glow:1.55, mode:1},
+      cyan:"#FFD166", violet:"#FF7A45", magenta:"#E63950", swirl:0.55, glow:1.0, mode:1},
     {id:"mono", name:"Mono", desc:"Scanline grid, sharp",
-      cyan:"#E7EAF2", violet:"#9AA6BF", magenta:"#54607A", swirl:1.7, glow:0.4, mode:2}
+      cyan:"#E7EAF2", violet:"#9AA6BF", magenta:"#54607A", swirl:1.7, glow:0.3, mode:2}
   ];
   function startPalette(){
     var widget = $("#paletteWidget"); if (!widget) return;
@@ -986,18 +998,26 @@ try{
     function size(){
       try{
         DPR = Math.min(window.devicePixelRatio||1,2);
-        W = cv.offsetWidth; H = cv.offsetHeight;
+        var newW = cv.offsetWidth, newH = cv.offsetHeight;
+        var widthChanged = Math.abs(newW - W) > 20;
+        W = newW; H = newH;
         cv.width = W*DPR; cv.height = H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
-        var n = Math.min(90, Math.floor(W*H/22000));
-        pts = [];
-        for (var i=0;i<n;i++) pts.push({
-          x:Math.random()*W, y:Math.random()*H,
-          vx:(Math.random()-.5)*.35, vy:(Math.random()-.5)*.35,
-          r:Math.random()*1.6+.4, c:Math.random()<.5?"38,224,255":"139,92,246"
-        });
+        /* mobile browsers fire resize repeatedly as the address bar collapses/expands
+           during scroll — that only changes H, so skip reshuffling every particle
+           (which looked like a glitch) unless the width actually changed */
+        if (widthChanged || !pts.length){
+          var n = Math.min(90, Math.floor(W*H/22000));
+          pts = [];
+          for (var i=0;i<n;i++) pts.push({
+            x:Math.random()*W, y:Math.random()*H,
+            vx:(Math.random()-.5)*.35, vy:(Math.random()-.5)*.35,
+            r:Math.random()*1.6+.4, c:Math.random()<.5?"38,224,255":"139,92,246"
+          });
+        }
       }catch(e){ console.warn("[stars] resize failed:", e); }
     }
-    size(); window.addEventListener("resize", size);
+    size();
+    window.addEventListener("resize", debounce(size, 200));
     if (cv.parentElement){
       cv.parentElement.addEventListener("pointermove", function(e){
         var b = cv.getBoundingClientRect(); mouse.x = e.clientX-b.left; mouse.y = e.clientY-b.top;
@@ -1248,7 +1268,7 @@ try{
     safeRun(function(){
       if (nebula && $(".hero")){
         ScrollTrigger.create({trigger:".hero",start:"top top",end:"bottom top",scrub:true,
-          onUpdate:function(self){ if (nebula) nebula.setDim(1 - self.progress*0.62); }});
+          onUpdate:function(self){ if (nebula) nebula.setDim(0.8 - self.progress*0.44); }});
       }
     }, "scroll: nebula dim");
 
