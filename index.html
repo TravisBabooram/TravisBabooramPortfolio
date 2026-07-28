@@ -314,9 +314,28 @@ try{
   .log-yr{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--cyan);letter-spacing:.08em}
   .log-t{font-size:17px;font-weight:600}
   .log-t small{display:block;font-weight:400;font-size:14px;color:var(--dim);margin-top:2px}
+  .log-view{display:inline-flex;align-items:center;gap:5px;margin-top:9px;font-family:var(--mono);
+    font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--cyan);
+    background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;
+    text-underline-offset:3px;text-decoration-color:transparent;transition:text-decoration-color .2s}
+  .log-view:hover{text-decoration-color:var(--cyan)}
   .log-tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
     color:var(--dim);border:1px solid var(--line);border-radius:var(--r-pill);padding:5px 11px;white-space:nowrap}
   @media(max-width:720px){.log-tag{justify-self:start;margin-top:6px}}
+
+  /* ---------- lightbox ---------- */
+  .lightbox{position:fixed;inset:0;z-index:110;display:flex;align-items:center;justify-content:center;
+    padding:clamp(20px,5vw,60px);background:rgba(2,3,8,.88);backdrop-filter:blur(6px);
+    opacity:0;pointer-events:none;transition:opacity .25s}
+  .lightbox.open{opacity:1;pointer-events:auto}
+  .lightbox img{max-width:100%;max-height:100%;border-radius:var(--r-card-sm);display:block;
+    background:#fff;box-shadow:0 30px 90px rgba(0,0,0,.6)}
+  .lightbox-close{position:absolute;top:clamp(16px,3vw,32px);right:clamp(16px,3vw,32px);
+    width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid var(--line);
+    color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;
+    font-size:20px;line-height:1;backdrop-filter:blur(10px);transition:border-color .2s}
+  .lightbox-close:hover{border-color:var(--cyan)}
+  @media(prefers-reduced-motion:reduce){.lightbox{transition:none}}
 
   /* ---------- contact ---------- */
   .contact{padding-bottom:40px}
@@ -539,12 +558,16 @@ try{
       </div>
       <div class="log-row" data-reveal>
         <span class="log-yr">2023</span>
-        <div class="log-t">Diploma, Automotive Services<small>NESC Technical Institute — 132-credit systems &amp; diagnostics program</small></div>
+        <div class="log-t">Diploma, Automotive Services<small>NESC Technical Institute — 132-credit systems &amp; diagnostics program</small>
+          <button class="log-view" type="button" data-cert="assets/nesc-certificate.jpg" data-cert-alt="NESC Technical Institute diploma in Automotive Services, awarded to Travis Babooram, 14 October 2023">View certificate ↗</button>
+        </div>
         <span class="log-tag">Certified</span>
       </div>
       <div class="log-row" data-reveal>
         <span class="log-yr">2020</span>
-        <div class="log-t">CSEC — St. Stephen's College<small>Grade 1: Mathematics · English A · Information Technology</small></div>
+        <div class="log-t">CSEC — St. Stephen's College<small>Grade 1: Mathematics · English A · Information Technology</small>
+          <button class="log-view" type="button" data-cert="assets/csec-certificate.jpg" data-cert-alt="Caribbean Secondary Education Certificate results for Travis Babooram, June 2020, 8 subjects">View certificate ↗</button>
+        </div>
         <span class="log-tag">8 subjects</span>
       </div>
     </div>
@@ -570,6 +593,11 @@ try{
   </section>
 
 </main>
+
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Certificate viewer" aria-hidden="true">
+  <button class="lightbox-close" id="lightboxClose" type="button" aria-label="Close">&times;</button>
+  <img id="lightboxImg" src="" alt="">
+</div>
 
 <footer>
   <div class="wrap">
@@ -1163,6 +1191,39 @@ try{
     });
   }
 
+  /* ---------- certificate lightbox ---------- */
+  function startLightbox(){
+    var box = $("#lightbox"), img = $("#lightboxImg"), closeBtn = $("#lightboxClose");
+    var triggers = $$("[data-cert]");
+    if (!box || !img || !closeBtn || !triggers.length) return;
+    var lastFocus = null;
+    function open(src, alt){
+      lastFocus = document.activeElement;
+      img.src = src; img.alt = alt || "";
+      box.classList.add("open");
+      box.setAttribute("aria-hidden","false");
+      document.body.classList.add("lock");
+      closeBtn.focus();
+    }
+    function close(){
+      box.classList.remove("open");
+      box.setAttribute("aria-hidden","true");
+      document.body.classList.remove("lock");
+      img.src = "";
+      if (lastFocus && lastFocus.focus) lastFocus.focus();
+    }
+    triggers.forEach(function(btn){
+      btn.addEventListener("click", function(){
+        open(btn.getAttribute("data-cert"), btn.getAttribute("data-cert-alt"));
+      });
+    });
+    closeBtn.addEventListener("click", close);
+    box.addEventListener("click", function(e){ if (e.target === box) close(); });
+    document.addEventListener("keydown", function(e){
+      if (e.key === "Escape" && box.classList.contains("open")) close();
+    });
+  }
+
   /* ---------- terminal ---------- */
   function startTerm(){
     var box = $("#term"), out = $("#termOut"), input = $("#termIn");
@@ -1437,6 +1498,7 @@ try{
     safeRun(startMagnets, "magnetic buttons");
     safeRun(startTilt, "3D tilt cards");
     safeRun(startTerm, "terminal");
+    safeRun(startLightbox, "certificate lightbox");
     safeRun(startScroll, "scroll choreography");
     try{
       if (document.fonts && document.fonts.ready && typeof ScrollTrigger !== "undefined"){
