@@ -18,7 +18,11 @@ try{
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2304060D'/%3E%3Ctext x='16' y='21' font-family='monospace' font-size='12' font-weight='700' fill='%2326E0FF' text-anchor='middle'%3ETB%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- non-blocking font load: fetch the stylesheet without holding up first paint,
+     swap it in once ready; noscript fallback keeps fonts working with JS off -->
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
 <style>
   :root{
     --bg:#04060D;
@@ -234,6 +238,10 @@ try{
   .stat-card{background:rgba(6,10,22,.82);padding:18px 24px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:4px}
   .stat-num{font-family:var(--display);font-weight:800;
     font-size:clamp(52px,7.6vw,104px);line-height:.92;margin:0}
+  /* Unbounded's digits aren't fixed-width, so the count-up animation reflows the
+     number's box every frame as digits change — tabular-nums pins digit width
+     so the box stays put while the value ticks up */
+  .stat-num span[data-count]{font-variant-numeric:tabular-nums;display:inline-block}
   .stat-num i{font-style:normal;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
   .stat-label{font-family:var(--mono);font-size:clamp(11px,.95vw,12px);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
 
@@ -594,7 +602,7 @@ try{
 
 </main>
 
-<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Certificate viewer" aria-hidden="true">
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Certificate viewer" aria-hidden="true" inert>
   <button class="lightbox-close" id="lightboxClose" type="button" aria-label="Close">&times;</button>
   <img id="lightboxImg" src="" alt="">
 </div>
@@ -607,9 +615,9 @@ try{
   </div>
 </footer>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollToPlugin.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollToPlugin.min.js" defer></script>
 <script>
 (function(){
   "use strict";
@@ -618,12 +626,11 @@ try{
   }
   var reduce = safeMatch("(prefers-reduced-motion: reduce)");
   var fine = safeMatch("(hover: hover) and (pointer: fine)");
-  var hasGSAP = typeof gsap !== "undefined";
+  /* GSAP now loads with `defer`, so it may not exist yet at this point in parsing —
+     hasGSAP is resolved for real inside the DOMContentLoaded handler below, once
+     every deferred script is guaranteed to have run */
+  var hasGSAP = false;
   var nebula = null;
-  try{
-    if (hasGSAP && typeof ScrollTrigger !== "undefined") gsap.registerPlugin(ScrollTrigger);
-    if (hasGSAP && typeof ScrollToPlugin !== "undefined") gsap.registerPlugin(ScrollToPlugin);
-  }catch(e){ console.warn("[init] GSAP plugin registration failed:", e); }
 
   console.log("%cHey, fellow dev 👋","font-size:16px;font-weight:bold;color:#26E0FF");
   console.log("%cInspect away — every line here is hand-written. — Travis","color:#8B5CF6");
@@ -1202,12 +1209,16 @@ try{
       img.src = src; img.alt = alt || "";
       box.classList.add("open");
       box.setAttribute("aria-hidden","false");
+      box.removeAttribute("inert");
       document.body.classList.add("lock");
       closeBtn.focus();
     }
     function close(){
       box.classList.remove("open");
       box.setAttribute("aria-hidden","true");
+      /* inert keeps the close button out of the tab order and off assistive tech
+         while the lightbox is closed — aria-hidden alone doesn't stop keyboard focus */
+      box.setAttribute("inert","");
       document.body.classList.remove("lock");
       img.src = "";
       if (lastFocus && lastFocus.focus) lastFocus.focus();
@@ -1489,6 +1500,11 @@ try{
 
   /* ---------- init ---------- */
   document.addEventListener("DOMContentLoaded", function(){
+    hasGSAP = typeof gsap !== "undefined";
+    try{
+      if (hasGSAP && typeof ScrollTrigger !== "undefined") gsap.registerPlugin(ScrollTrigger);
+      if (hasGSAP && typeof ScrollToPlugin !== "undefined") gsap.registerPlugin(ScrollToPlugin);
+    }catch(e){ console.warn("[init] GSAP plugin registration failed:", e); }
     nebula = safeRun(startNebula, "nebula background");
     safeRun(startPalette, "palette picker");
     safeRun(runBoot, "boot sequence");
