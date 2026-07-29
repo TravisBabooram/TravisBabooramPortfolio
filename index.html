@@ -958,11 +958,13 @@ try{
        play, then ease into a dim, motion-free frame instead of animating forever
        (a continuously-redrawing fullscreen shader plus scroll compounds into lag),
        settling on a calmer tint of the theme colors that won't fight page content */
+    var dimCeiling = null;
     if (!fine){
       setTimeout(function(){
         for(var i=0;i<6;i++) bursts[i*3+2]=-1;
         tx=-9999; ty=-9999;
         var startDim=dim, targetDim=Math.min(dim,0.4), step=0, STEPS=36;
+        dimCeiling = targetDim;
         frozen = true;
         (function settle(){
           step++;
@@ -976,7 +978,13 @@ try{
     document.body.classList.add("gl");
     return {
       burst:burst,
-      setDim:function(v){ dim=v; if (frozen) render(); },
+      /* once the mobile background has settled, scroll can still calm it further
+         but must never brighten it back past that settled ceiling — otherwise
+         scrolling back up re-lights the frozen frame into a washed-out flash */
+      setDim:function(v){
+        dim = (frozen && dimCeiling !== null) ? Math.min(v, dimCeiling) : v;
+        if (frozen) render();
+      },
       setPalette:setPalette
     };
     }catch(e){
